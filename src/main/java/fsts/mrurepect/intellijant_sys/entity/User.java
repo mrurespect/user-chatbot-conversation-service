@@ -31,6 +31,7 @@ public class User {
     private String email ;
     @Setter
     @ManyToMany(mappedBy = "users")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private List<Conversation> conversations;
     public void addConversation(Conversation conversation){
         if (conversations==null){
@@ -40,8 +41,7 @@ public class User {
     }
 
 
-    public User(int id, String username, String password, String name, String lastName, String email) {
-        this.id = id;
+    public User( String username, String password, String name, String lastName, String email) {
         this.username = username;
         this.password = password;
         this.name = name;

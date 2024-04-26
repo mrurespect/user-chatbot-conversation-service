@@ -4,6 +4,7 @@ import fsts.mrurepect.intellijant_sys.dao.ConversationDao;
 import fsts.mrurepect.intellijant_sys.entity.Conversation;
 import fsts.mrurepect.intellijant_sys.entity.Message;
 import fsts.mrurepect.intellijant_sys.entity.User;
+import fsts.mrurepect.intellijant_sys.exception.ConversationNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -38,12 +39,18 @@ public class ConversationServiceImpl implements ConversationService{
         if (conversation.isPresent()){
             return conversation.get().getMessages();
         }else{
-            throw new RuntimeException("conversation not found");
+            throw new ConversationNotFoundException("Conversation %d not found".formatted(id));
         }
     }
 
     @Override
     public Conversation getConversationById(int id) {
-        return conversationDao.findById(id).orElse(null);
+        return conversationDao.findById(id).
+                orElseThrow(()->new ConversationNotFoundException("Conversation %d not found".formatted(id)));
+    }
+
+    @Override
+    public Conversation addConversation(Conversation conversation) {
+        return conversationDao.save(conversation);
     }
 }

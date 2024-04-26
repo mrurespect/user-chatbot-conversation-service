@@ -12,4 +12,6 @@ public interface ConversationService {
 
     List<Message> getMessagesByConverId(int id);
     Conversation getConversationById(int id);
+
+    Conversation addConversation(Conversation conversation);
 }

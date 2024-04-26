@@ -2,6 +2,8 @@ package fsts.mrurepect.intellijant_sys.service;
 
 import fsts.mrurepect.intellijant_sys.dao.UserDao;
 import fsts.mrurepect.intellijant_sys.entity.User;
+import fsts.mrurepect.intellijant_sys.exception.UserAlreadyExistException;
+import fsts.mrurepect.intellijant_sys.exception.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +35,24 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUser(int id) {
         Optional<User> optionalUser= userDao.findById(id);
-        return optionalUser.orElse(null);
+        return optionalUser.
+                orElseThrow(()->new UserNotFoundException(
+                        "User with id %d not found".formatted(id)
+                ));
+    }
+
+    @Override
+    public boolean addUser(User user) {
+        userDao.findAll().forEach(tempUser -> {
+            if (
+                    Objects.equals(tempUser.getUsername(), user.getUsername())
+                    ||
+                    Objects.equals(tempUser.getEmail(), user.getEmail())
+            ){
+                throw new UserAlreadyExistException("User already exist");
+            }
+        });
+        userDao.save(user);
+        return true;
     }
 }

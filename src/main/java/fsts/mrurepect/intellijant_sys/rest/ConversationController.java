@@ -2,10 +2,13 @@ package fsts.mrurepect.intellijant_sys.rest;
 
 
 import fsts.mrurepect.intellijant_sys.dto.UserResponse;
-import fsts.mrurepect.intellijant_sys.entity.*;
+import fsts.mrurepect.intellijant_sys.entity.Conversation;
+import fsts.mrurepect.intellijant_sys.entity.Message;
+import fsts.mrurepect.intellijant_sys.entity.User;
+import fsts.mrurepect.intellijant_sys.exception.UserNotConnectedException;
+import fsts.mrurepect.intellijant_sys.exception.UserNotFoundException;
 import fsts.mrurepect.intellijant_sys.mapper.UserMapper;
 import fsts.mrurepect.intellijant_sys.service.ConversationService;
-import fsts.mrurepect.intellijant_sys.service.ConversationUserService;
 import fsts.mrurepect.intellijant_sys.service.MessageService;
 import fsts.mrurepect.intellijant_sys.service.UserService;
 import jakarta.servlet.http.HttpSession;
@@ -13,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,28 +29,24 @@ public class ConversationController {
     private final UserService userService ;
     private final ConversationService conversationService;
     private final MessageService messageService;
-    private final ConversationUserService conversationUserService;
+    private final User root ;
 
-    private Conversation conversation=null;
-
-    private String role = Type.normal.toString();
 
     @Autowired
-    ConversationController(UserService service, ConversationService conversationService, MessageService messageService, ConversationUserService conversationUserService) {
+    ConversationController(UserService service, ConversationService conversationService, MessageService messageService) {
         this.userService = service;
         this.conversationService = conversationService;
         this.messageService = messageService;
-        this.conversationUserService = conversationUserService;
+        root=userService.getUser(1000);
     }
 
     @GetMapping("/login")
-    public ResponseEntity<String> status(Model model, HttpSession session){
+    public ResponseEntity<String> status(HttpSession session){
         if (session.getAttribute("user")!=null){
             return new ResponseEntity<>("connected", HttpStatus.OK);
         }
 
-        model.addAttribute("theDate",new Date());
-        return new ResponseEntity<>("login required",HttpStatus.NETWORK_AUTHENTICATION_REQUIRED);
+        throw  new UserNotConnectedException("login required");
     }
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody User user,HttpSession session){
@@ -59,13 +57,12 @@ public class ConversationController {
             System.out.println(session.getAttribute("user"));
             return new ResponseEntity<>("connected succesfully",HttpStatus.OK);
         }
-            System.out.println("n existe pas");
-        return new ResponseEntity<>("echec d'authentification ...",HttpStatus.NOT_FOUND);
+            throw new UserNotFoundException("echec d'echec d'authentification ..., User not found");
     }
     @GetMapping("/conversations")
-    public ResponseEntity<List<Conversation>> conversations(Model model,HttpSession session){
+    public ResponseEntity<List<Conversation>> conversations(HttpSession session){
         if (session.getAttribute("user")==null){
-            return new ResponseEntity<>(List.of(),HttpStatus.NETWORK_AUTHENTICATION_REQUIRED);
+            throw  new UserNotConnectedException("Not connected ,login required");
         }
 
         User current=(User) session.getAttribute("user");
@@ -75,7 +72,7 @@ public class ConversationController {
     @GetMapping("/conversation/{id}")
     public ResponseEntity<List<Message>> messagesByConversId(@PathVariable("id") int id,HttpSession session){
         if (session.getAttribute("user")==null){
-            return new ResponseEntity<>(List.of(),HttpStatus.NETWORK_AUTHENTICATION_REQUIRED);
+            throw  new UserNotConnectedException("Not connected ,login required");
         }
 
         List<Message> messages =conversationService.getMessagesByConverId(id);
@@ -86,48 +83,51 @@ public class ConversationController {
         session.invalidate();
         return new ResponseEntity<>("deconnected succesfully",HttpStatus.OK);
     }
-    @PostMapping("/send")
-    public ResponseEntity<Message> sendMessage(@RequestBody Message message,HttpSession session) {
-        if (session.getAttribute("user")==null){
-            return new ResponseEntity<>(null,HttpStatus.NETWORK_AUTHENTICATION_REQUIRED);
-        }
 
-        User sender =userService.getUser(message.getSender().getId());
-        Conversation currentConversation =conversationService.getConversationById(message.getConversation().getId());
-        message.setSender(sender);                          //
-        message.setTime(new Date());
-        message.setConversation(currentConversation);       //
-
-        Message dbMessage =messageService.addMessage(message);
-        return new ResponseEntity<>(dbMessage,HttpStatus.OK);
-    }
     @GetMapping("/info")
     public ResponseEntity<UserResponse> getInfo(HttpSession session){
 
         if (session.getAttribute("user")==null){
-            return new ResponseEntity<>(null,HttpStatus.NETWORK_AUTHENTICATION_REQUIRED);
+            throw  new UserNotConnectedException("Not connected ,login required");
         }
 
         User user = (User) session.getAttribute("user");
         UserResponse userResponse = UserMapper.mappeToUserResponse(user);
         return new ResponseEntity<>(userResponse,HttpStatus.OK);
     }
-
-
-
-
-    @GetMapping("/")
-    public String redirect(){
-        return "redirect:/login";
-    }
-    @GetMapping("/users")
-    public String getUsers(Model model){
-        //ConversationUser conversationUser =conversationUserService.find(conversation,user);
-        List<ConversationUser> conversationUsers =conversationUserService.find(conversation);
-        System.out.println("conv user ="+conversationUsers);
-        model.addAttribute("conversationUsers",conversationUsers);
-
-        return "conversationUsers" ;
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody User user){
+        if (userService.addUser(user)){
+            return new ResponseEntity<>("user registred successfuly",HttpStatus.OK);
+        }
+        return new ResponseEntity<>("An error occured ,user not added",HttpStatus.NOT_FOUND);
     }
 
+    @PostMapping("/conversation")
+    public ResponseEntity<Conversation> createConversation(@RequestBody Conversation conversation,HttpSession session){
+        if (session.getAttribute("user")==null){
+            throw  new UserNotConnectedException("Not connected ,login required");
+        }
+
+        User user = (User) session.getAttribute("user");
+        conversation.addUser(user);
+        conversation.addUser(root);
+        Conversation dbConversation =conversationService.addConversation(conversation);
+        return new ResponseEntity<>(dbConversation,HttpStatus.OK);
+    }
+    @PostMapping("/message")
+    public ResponseEntity<Message> addUserToConversation(@RequestBody Message message,HttpSession session){
+        if (session.getAttribute("user")==null){
+            throw  new UserNotConnectedException("Not connected ,login required");
+        }
+
+        Conversation conversation = conversationService.getConversationById(message.getConversation().getId());
+        User user = userService.getUser(message.getSender().getId());
+        message.setTime(new Date());
+        message.setConversation(conversation);
+        message.setSender(user);
+
+        Message dbMessage =messageService.addMessage(message);
+        return new ResponseEntity<>(dbMessage,HttpStatus.OK);
+    }
 }
