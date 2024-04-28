@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.List;
 
 @RestController
+@CrossOrigin("*")
 @RequestMapping("/")
 public class ConversationController {
     private final UserService userService ;
