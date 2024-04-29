@@ -19,7 +19,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @CrossOrigin("*")
@@ -48,15 +50,19 @@ public class ConversationController {
         throw  new UserNotConnectedException("login required");
     }
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody User user,HttpSession session){
+    public ResponseEntity<Map<String, String>> login(@RequestBody User user, HttpSession session){
         User userx = userService.getUser(user);
         if (userx !=null){
             System.out.println("exist");
             session.setAttribute("user",userx);
             System.out.println(session.getAttribute("user"));
-            return new ResponseEntity<>("connected succesfully",HttpStatus.OK);
+
+            Map<String, String> responseBody = new HashMap<>();
+            responseBody.put("message", "connected succesfully");
+            responseBody.put("sessionId", session.getId());
+            return new ResponseEntity<>(responseBody, HttpStatus.OK);
         }
-            throw new UserNotFoundException("echec d'echec d'authentification ..., User not found");
+        throw new UserNotFoundException("echec d'echec d'authentification ..., User not found");
     }
     @GetMapping("/conversations")
     public ResponseEntity<List<Conversation>> conversations(HttpSession session){
@@ -130,3 +136,4 @@ public class ConversationController {
         return new ResponseEntity<>(dbMessage,HttpStatus.OK);
     }
 }
+
